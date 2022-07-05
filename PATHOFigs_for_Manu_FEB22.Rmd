@@ -1,0 +1,1117 @@
+title: "PATHOFigures_for_manu_FEB22"
+---
+author: "Kelsey Peterson"
+date: "2/9/2022"
+output: html_document
+---
+
+#ALL Packages needed for all the code below this chunk:
+
+
+```{r, include = FALSE }
+library(readr)
+library(tidyverse)
+library(dplyr)
+library(ggrepel)
+library(cowplot)
+library(pixiedust)
+library(kableExtra)
+library(maps)
+library(ggpubr)
+library(ggExtra)
+library(readxl)
+
+```
+
+---
+
+ # Figure 1 - MAP
+ 
+  Data and Code: Source: "Figure1_DimPatho.RMD"
+
+```{r }
+Dim2blatlong <- read_csv("Dim2b_latlon.csv")
+
+more_info <- read_csv("2B_DIMENSIONS_data_compile.csv") %>%
+  mutate(effective_precip = `30year_normal_ppt` - evapo_trans) %>%
+  dplyr::select(effective_precip, Site_Name_Prairies)
+
+
+Dim2blatlong <- full_join(Dim2blatlong , more_info) %>%
+  filter(!is.na(Region))
+
+my_map4 <- map_data("state") %>%
+  filter(region %in% c("illinois", "kansas", "missouri"))
+
+highlight_df <- Dim2blatlong %>%
+  filter(Field_Type == "Common_Garden")
+```
+
+```{r}
+
+pmain <- ggplot(data = Dim2blatlong,
+                aes(x = lon, y = lat, color = effective_precip, fill = Field_Type,
+                    show.legend = FALSE)) +
+  geom_polygon(data = my_map4,
+               aes(x = long, y = lat, group = group),
+               color = "gray80",
+               fill = "gray90",
+               inherit.aes = FALSE) +
+  geom_point(size = 5.5, aes(shape = Field_Type),alpha = .8) +
+  geom_point( data =highlight_df, aes(x = lon, y = lat),
+              color = "black", shape = 4, show.legend = FALSE,
+              size = 8)+
+  scale_fill_manual(values=c("blue", "black")) +
+  scale_colour_gradient2(low = "#D55E00", mid = "#009E73",
+                         high = "#0072B2",
+                         midpoint = mean(Dim2blatlong$effective_precip,na.rm=TRUE))+
+  scale_shape_manual(values=c(4, 16 ))+
+  coord_fixed(1.3) +
+  theme_classic() +
+  labs(x = "Longitude", y = "Latitude")  +
+  geom_text_repel(data = .%>% filter(Field_Type == "Common_Garden"), aes( label = RTlocs, colour = "black"),
+                  show.legend = FALSE,
+                  nudge_x = 0,
+                  box.padding = 0.01,
+                  point.padding = .5,
+                  nudge_y = 1.5,
+                  size = 3.5,
+                  color = "Black",
+                  check_overlap = TRUE) +
+  geom_text(data = .%>% filter(Field_Type == "Prairie"),
+                  aes( label = Site_letters, colour = "black"),
+                  show.legend = FALSE,
+                  nudge_x = 0,
+                  nudge_y = 0,
+                  box.padding = 0.0,
+                  point.padding = 0,
+                  size = 2.5,
+                  color = "Black",
+                  check_overlap = TRUE,
+                  fontface="bold") +
+  theme(legend.position = c(0.25, 0.85), legend.direction = "horizontal")+
+  theme(legend.spacing.y = unit(1, "mm"),
+        legend.background = element_blank(),
+        legend.box.background = element_rect(colour = "black"))+
+  labs(color = "Effective Precipitation")
+
+
+pmain
+
+```
+
+
+
+
+
+
+
+
+
+---
+
+#Figure 2 - Map of Disease scores in prairie remnants across years
+
+CODE from : figure2_DimPatho.rmd
+Original data: 2019and2020Prairie_data.txt -> Summaryleafrust, Summaryleafblotch, Summaryviral19, Summaryviral20 in the PrairieData_KP_april2021.Rmd
+
+
+```{r, include=FALSE}
+rm(list=ls(all=TRUE))
+Summaryleafrust <- read_csv("Summaryleafrust")
+
+Summaryleafrust$Region.f=ifelse(Summaryleafrust$Region.f== "C","Central", 
+                                ifelse(Summaryleafrust$Region.f =="W","West",
+                                       ifelse(Summaryleafrust$Region.f=="E","East", "NA")))
+
+Summaryleafrust$Region.f<-factor(Summaryleafrust$Region.f,levels=c("West", "Central", "East"))
+
+Summaryleafrust <- Summaryleafrust %>% separate(ComboName,
+                c("Source_Prairie", "SP_Other_name"), " - ")
+
+Summaryleafrust$Source_Prairie <- factor(Summaryleafrust$Source_Prairie,levels = c("W1 ", "W2 ", "W3 ", "W4 ",
+                                                                                       "C1 ", "C2 ", "C3 ", "C4 ",
+                                                                                       "E1 " , "E2 ", "E3 ", "E4 "))
+```
+
+```{r}
+kpyanivoriginal_AVGPlotleafrust <- Summaryleafrust %>%
+  mutate(num_reg = as.numeric(Region.f),
+         x_for_p = num_reg + (as.numeric(Source_Prairie)%%4) / 5 -.3)  %>%
+  arrange(factor(Source_Prairie, levels = c("W1", "W2", "W3", "W4",
+                                  "C1", "C2", "C3", "C4",
+                                  "E1", "E2", "E3", "E4")), x_for_p)  %>%
+  ggplot(aes(x=as.numeric(Region.f), y=leaf_rust)) +
+  facet_grid(~Year.f)+
+  geom_bar(stat = "summary",
+           fun.y = "mean",
+           position = position_dodge2(width = 0.9, preserve = "single"),
+           show.legend = FALSE,
+           fill = "gray80",
+          # fill = c("#D55E00", "#009E73", "#0072B2", "#D55E00", "#009E73", "#0072B2" ),
+           alpha = .9,
+           width = .5) +
+  
+      stat_summary(fun.data = mean_se,  
+                 geom = "pointrange",
+                 color = "black")+
+
+  geom_point(aes( x = x_for_p,  
+                  color = Region.f), 
+                   
+                  show_legend = FALSE,
+                  size = 4,
+             
+             alpha = .6) +
+    guides(color = FALSE) +
+    
+   #guides(color=guide_legend(title="Prairies")) +
+  
+    geom_text(aes(label = Source_Prairie, color = "Black"), 
+             size = 2.3,
+             check_overlap = FALSE,
+             position = position_dodge2(width = .8, preserve = "single"),
+             show.legend = FALSE,
+             color = "Black",
+             fontface="bold") + 
+             #nudge_x = 0,) +
+#geom_segment(aes(x =  x_for_p, xend =  x_for_p, y =  leaf_rust - ci,  yend = leaf_rust + ci))+
+  labs(title ="", x="", y="Leaf Rust (% of total leaf area affected)") +
+ 
+  facet_grid(~Year.f)  +
+                theme_bw(base_size = 10) +
+ scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) + 
+  #scale_color_manual(values=c("#ff704d", "#ff3300","#b32400", "#801a00","#80ff80", "#33ff33","#009900", "#004d00","#b3d9ff", "#4da6ff","#0066cc", "#00264d")) +
+  scale_x_discrete(limits=c("West","Central","East")) 
+                              
+kpyanivoriginal_AVGPlotleafrust
+ 
+```
+
+```{r, include=FALSE}
+Summaryleafblotch <- read_csv("Summaryleafblotch")
+
+Summaryleafblotch$Region.f=ifelse(Summaryleafblotch$Region.f== "C","Central", 
+                                ifelse(Summaryleafblotch$Region.f =="W","West",
+                                       ifelse(Summaryleafblotch$Region.f=="E","East", "NA")))
+
+Summaryleafblotch$Region.f<-factor(Summaryleafblotch$Region.f,levels=c("West", "Central", "East"))
+
+Summaryleafblotch <- Summaryleafblotch %>% separate(ComboName,
+                c("Source_Prairie", "SP_Other_name"), " - ")
+
+
+
+Summaryleafblotch_excludecrazies <- subset(Summaryleafblotch, N > 13)
+
+Summaryleafblotch_nowest<- Summaryleafblotch %>% filter(Region.f != "West")
+
+
+Summaryleafblotch_excludecrazies_andwest <- subset(Summaryleafblotch, Leaf_blotch < 5)
+
+Summaryleafblotch$Source_Prairie <- factor(Summaryleafblotch$Source_Prairie,levels = c("W1 ", "W2 ", "W3 ", "W4 ",
+                                                                                       "C1 ", "C2 ", "C3 ", "C4 ",
+                                                                                       "E1 " , "E2 ", "E3 ", "E4 "))
+
+
+```
+
+```{r}
+kpyanivoriginal_AVGPlotleafblotch <- Summaryleafblotch %>%
+  mutate(num_reg = as.numeric(Region.f),
+         x_for_p = num_reg + (as.numeric(Source_Prairie)%%4) / 5 -.3)  %>%
+  arrange(factor(Source_Prairie, levels = c("W1", "W2", "W3", "W4",
+                                  "C1", "C2", "C3", "C4",
+                                  "E1", "E2", "E3", "E4")), x_for_p)  %>%
+  ggplot(aes(x=as.numeric(Region.f), y=Leaf_blotch)) +
+  facet_grid(~Year.f)+
+  geom_bar(stat = "summary",
+           fun.y = "mean",
+           position = position_dodge2(width = 0.9, preserve = "single"),
+           show.legend = FALSE,
+           fill = "gray80",
+          # fill = c("#D55E00", "#009E73", "#0072B2", "#D55E00", "#009E73", "#0072B2" ),
+           alpha = .9,
+           width = .5) +
+      stat_summary(fun.data = mean_se,  
+                 geom = "pointrange",
+                 color = "black")+
+
+  geom_point(aes( x = x_for_p,  
+                  color = Region.f), 
+                   
+                  show_legend = FALSE,
+                  size = 4,
+             
+             alpha = .6) +
+    guides(color = FALSE) +
+    
+   #guides(color=guide_legend(title="Prairies")) +
+  
+    geom_text(aes(label = Source_Prairie, color = "Black"), 
+             size = 2.3,
+             check_overlap = FALSE,
+             position = position_dodge2(width = .8, preserve = "single"),
+             show.legend = FALSE,
+             color = "Black",
+             fontface="bold") + 
+             #nudge_x = 0,) +
+#geom_segment(aes(x =  x_for_p, xend =  x_for_p, y =  leaf_rust - ci,  yend = leaf_rust + ci))+
+  labs(title ="", x="", y="Leaf Blotch (% of total leaf area affected)") +
+ 
+  facet_grid(~Year.f)  +
+                theme_bw(base_size = 10) +
+ scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) + 
+  #scale_color_manual(values=c("#ff704d", "#ff3300","#b32400", "#801a00","#80ff80", "#33ff33","#009900", "#004d00","#b3d9ff", "#4da6ff","#0066cc", "#00264d")) +
+  scale_x_discrete(limits=c("West","Central","East")) 
+                              
+kpyanivoriginal_AVGPlotleafblotch
+ 
+```
+
+```{r, include=FALSE}
+
+Summaryviral19 <- read_csv("Summaryviral19")
+
+Summaryviral19$Region.f=ifelse(Summaryviral19$Region.f== "C","Central", 
+                                ifelse(Summaryviral19$Region.f =="W","West",
+                                       ifelse(Summaryviral19$Region.f=="E","East", "NA")))
+
+Summaryviral19$Region.f<-factor(Summaryviral19$Region.f,levels=c("West", "Central", "East"))
+
+Summaryviral19 <- Summaryviral19 %>% separate(ComboName,
+                c("Source_Prairie", "SP_Other_name"), " - ")
+
+Summaryviral19<- Summaryviral19 %>% filter(Year.f == "2019")
+
+Summaryviral19$Source_Prairie <- factor(Summaryviral19$Source_Prairie,levels = c("W1 ", "W2 ", "W3 ", "W4 ",
+                                                                                       "C1 ", "C2 ", "C3 ", "C4 ",
+                                                                                       "E1 " , "E2 ", "E3 ", "E4 "))
+
+```
+
+
+
+```{r}
+Summaryviral20 <- read_csv("Summaryviral20")
+
+Summaryviral20$Region.f=ifelse(Summaryviral20$Region.f== "C","Central", 
+                                ifelse(Summaryviral20$Region.f =="W","West",
+                                       ifelse(Summaryviral20$Region.f=="E","East", "NA")))
+
+Summaryviral20$Region.f<-factor(Summaryviral20$Region.f,levels=c("West", "Central", "East"))
+
+Summaryviral20 <- Summaryviral20 %>% separate(ComboName,
+                c("Source_Prairie", "SP_Other_name"), " - ")
+
+Summaryviral20<- Summaryviral20 %>% filter(Year.f == "2020")
+
+Summaryviral20$Source_Prairie <- factor(Summaryviral20$Source_Prairie,levels = c("W1 ", "W2 ", "W3 ", "W4 ",
+                                                                                       "C1 ", "C2 ", "C3 ", "C4 ",
+                                                                                       "E1 " , "E2 ", "E3 ", "E4 "))
+```
+
+
+`
+```{r}
+SummaryViral19 <- Summaryviral19 %>%
+  mutate(viral_percent = as.numeric(viral_percent),
+         num_reg = as.numeric(Region.f),
+         x_for_p = num_reg + (as.numeric(Source_Prairie)%%4) / 5 -.3)  %>%
+  arrange(factor(Source_Prairie, levels = c("W1", "W2", "W3", "W4",
+                                  "C1", "C2", "C3", "C4",
+                                  "E1", "E2", "E3", "E4")), x_for_p)
+
+```
+  
+```{r}
+kpyanivoriginal_AVGPlotleafvirus19 <- SummaryViral19 %>%
+  ggplot(aes(x=as.numeric(Region.f), y=viral_percent)) +
+  facet_grid(~Year.f)+
+  geom_bar(stat = "summary",
+           fun.y = "mean",
+           position = position_dodge2(width = 0.9, preserve = "single"),
+           show.legend = FALSE,
+           fill = "gray80",
+          # fill = c("#D55E00", "#009E73", "#0072B2", "#D55E00", "#009E73", "#0072B2" ),
+           alpha = .9,
+           width = .5) +
+      stat_summary(fun.data = mean_se,  
+                 geom = "pointrange",
+                 color = "black")+
+
+  geom_point(aes( x = x_for_p,  
+                  color = Region.f), 
+                   
+                  show_legend = FALSE,
+                  size = 4,
+             
+             alpha = .6) +
+    guides(color = FALSE) +
+    
+   #guides(color=guide_legend(title="Prairies")) +
+  
+   geom_text(aes(label = Source_Prairie, color = "Black"), 
+             size = 2.3,
+             check_overlap = FALSE,
+             position = position_dodge2(width = .8, preserve = "single"),
+             show.legend = FALSE,
+             color = "Black",
+             fontface="bold") + 
+             #nudge_x = 0,) +
+#geom_segment(aes(x =  x_for_p, xend =  x_for_p, y =  leaf_rust - ci,  yend = leaf_rust + ci))+
+  labs(title ="", x="Prairie Region", y="Silphium Clear Vein (% severity)") +
+ 
+  facet_grid(~Year.f)  +
+                theme_bw(base_size = 10) +
+ scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) + 
+  #scale_color_manual(values=c("#ff704d", "#ff3300","#b32400", "#801a00","#80ff80", "#33ff33","#009900", "#004d00","#b3d9ff", "#4da6ff","#0066cc", "#00264d")) +
+  scale_x_discrete(limits=c("West","Central","East")) 
+                              
+kpyanivoriginal_AVGPlotleafvirus19
+ 
+```
+
+```{r}
+Summaryviral20 <- Summaryviral20 %>%
+  mutate(viral_symptoms = as.numeric(viral_symptoms),
+         num_reg = as.numeric(Region.f),
+         x_for_p = num_reg + (as.numeric(Source_Prairie)%%4) / 5 -.3)  %>%
+  arrange(factor(Source_Prairie, levels = c("W1", "W2", "W3", "W4",
+                                  "C1", "C2", "C3", "C4",
+                                  "E1", "E2", "E3", "E4")), x_for_p)  
+
+
+
+kpyanivoriginal_AVGPlotleafvirus20 <-  Summaryviral20 %>%
+  ggplot(aes(x=as.numeric(Region.f), y=viral_symptoms)) +
+  facet_grid(~Year.f)+
+  geom_bar(stat = "summary",
+           fun.y = "mean",
+     
+           show.legend = FALSE,
+           fill = "gray80",
+          
+           alpha = .9,
+           width = .5) +
+      stat_summary(fun.data = mean_se,  
+                 geom = "pointrange",
+                 color = "black")+
+
+  geom_point(aes( x = x_for_p,  
+                  color = Region.f), 
+                    
+                  show_legend = FALSE,
+                  size = 4,
+             
+             alpha = .6) +
+    guides(color = FALSE) +
+  
+   geom_text(aes(label = Source_Prairie, color = "Black"), 
+             size = 2.3,
+             check_overlap = FALSE,
+             position = position_dodge2(width = .8, preserve = "single"),
+             show.legend = FALSE,
+             color = "Black",
+             fontface="bold") + 
+             
+
+  labs(title ="", x="Prairie Region", y="Silphium Clear Vein (Scaled Severity)") +
+ 
+  facet_grid(~Year.f)  +
+                theme_bw(base_size = 10) +
+ scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) + 
+  scale_x_discrete(limits=c("West","Central","East")) 
+   
+                              
+kpyanivoriginal_AVGPlotleafvirus20
+ 
+```
+
+NEW VIRAL DATA PANEL
+```{r}
+
+viral_panel2 <- plot_grid(kpyanivoriginal_AVGPlotleafvirus19, 
+                          kpyanivoriginal_AVGPlotleafvirus20, 
+                          
+                                   ncol = 2)
+viral_panel2
+```
+
+
+use gg arrange
+```{r, fig.height= 9, fig.width=6}
+
+bottom_row <- plot_grid(kpyanivoriginal_AVGPlotleafvirus19,
+          kpyanivoriginal_AVGPlotleafvirus20, labels = c('C', 'D'), label_size = 8)
+
+
+plot_grid(kpyanivoriginal_AVGPlotleafrust,
+          kpyanivoriginal_AVGPlotleafblotch,
+          bottom_row,
+          nrow = 3, ncol = 1,
+          #rel_widths = c(2.3, 1.5, 1.5),
+          labels = c('A', 'B', ' ' ),
+          label_size = 8)
+
+```
+
+
+
+---
+
+#Figure 3: DVT Index of germplasm 'performance' across all the sites
+
+Data and code from : Figure3_Dim_Patho.rmd
+
+```{r}
+rm(list=ls(all=TRUE))
+DVT_index <- read_csv("DVT_index_work_kp_version.csv")
+
+DVTindex <- DVT_index %>% group_by (source) %>%
+  mutate( index = sum(score))
+
+```
+
+
+```{r, fig.height= 3, fig.width=4}
+
+Mainindex <- DVTindex %>% 
+  filter(disease =="blotch", destination == "West") %>%
+#  mutate(source_seed = str_remove(source, "[:digit:]"))
+  mutate(source_seed = factor(case_when(source %in% paste("C",1:4,sep ="")~ "Central",
+                    source %in% paste("W",1:4,sep ="")~ "West",
+                    source %in% paste("E",1:4,sep ="")~ "East"),
+         levels = c("West","Central","East" ) ))%>%
+  
+  ggplot(aes(x = source_seed, y = index))+
+  stat_summary(aes(group = source_seed), geom = "bar",
+               color = "lightgrey",
+               alpha = .3)+
+  stat_summary(aes(group = source_seed,fill = source_seed), geom = "pointrange")+
+  geom_text(aes(label = source),
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            size = 2.5,
+            fontface="bold")+
+  geom_hline(yintercept = 0) + 
+  
+
+    guides(color = FALSE, fill = FALSE) +
+  labs(title ="", x="Prairie Region", y="Overall Index Score") +
+                theme_bw() +
+ scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) +
+ scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2")) + 
+ geom_jitter(aes(col=source_seed), 
+             alpha = .5, 
+             show.legend = FALSE, 
+             message = FALSE, 
+             position = position_dodge2(width = 0.9, preserve = "single"),
+             size = 6) +
+    ylim(-5, 5) + 
+  theme_bw() +
+  theme(axis.text=element_text(size=10))
+
+```
+
+
+```{r, fig.height= 3, fig.width=4}
+
+
+Blotchindex <-  DVTindex %>% 
+   filter(disease =="blotch") %>%
+
+  mutate(source_seed = factor(case_when(source %in% paste("C",1:4,sep ="")~ "Central",
+                    source %in% paste("W",1:4,sep ="")~ "West",
+                    source %in% paste("E",1:4,sep ="")~ "East"),
+         levels = c("West","Central","East" ) )) %>%
+#  group_by(source_seed, source, score) %>%
+  group_by(source_seed, source) %>%
+  #summarise(avgscore = mean(score)) %>%
+ # 
+  ggplot(aes(x = source_seed, y = score))+
+  stat_summary(aes(group = source_seed), geom = "bar",
+               color = "lightgrey",
+               alpha = .3)+
+  stat_summary(aes(group = source_seed,fill = source_seed), geom = "pointrange")+
+  geom_text(aes(label = source),
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            size = 2.5,
+            fontface="bold")+
+  geom_hline(yintercept = 0) + 
+  
+
+    guides(color = FALSE, fill = FALSE) +
+  labs(title ="", x="Prairie Region", y="Leaf Blotch") +
+                theme_bw() +
+ scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) +
+ scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2")) + 
+ geom_jitter(aes(col=source_seed), 
+             alpha = .5, 
+             show.legend = FALSE, 
+             message = FALSE, 
+             position = position_dodge2(width = 0.9, preserve = "single"),
+             size = 6) +
+    ylim(-1.5, 1.5) + 
+  theme_bw() +
+  theme(axis.text=element_text(size=10))
+
+
+```
+
+```{r, fig.height= 3, fig.width=4}
+
+Rustindex <-  DVTindex %>% 
+   filter(disease =="rust") %>% 
+#  mutate(source_seed = str_remove(source, "[:digit:]"))
+  mutate(source_seed = factor(case_when(source %in% paste("C",1:4,sep ="")~ "Central",
+                    source %in% paste("W",1:4,sep ="")~ "West",
+                    source %in% paste("E",1:4,sep ="")~ "East"),
+         levels = c("West","Central","East" ) )) %>%
+  #group_by(source_seed, source, score) %>%
+  group_by(source_seed, source) %>%
+summarise(avgscore = mean(score)) %>%
+  
+
+  ggplot(aes(x = source_seed, y = avgscore))+
+  stat_summary(aes(group = source_seed), geom = "bar",
+               color = "lightgrey",
+               alpha = .3)+
+  stat_summary(aes(group = source_seed,fill = source_seed), geom = "pointrange")+
+  geom_text(aes(label = source),
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            size = 2.5,
+            fontface="bold")+
+  geom_hline(yintercept = 0) + 
+  
+
+    guides(color = FALSE, fill = FALSE) +
+  labs(title ="", x="", y="Leaf Rust") +
+                theme_bw() +
+ scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) +
+ scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2")) + 
+ geom_jitter(aes(col=source_seed), 
+             alpha = .5, 
+             show.legend = FALSE, 
+             message = FALSE, 
+             position = position_dodge2(width = 0.9, preserve = "single"),
+             size = 6) +
+    ylim(-1, 1) + 
+  theme_bw() +
+  theme(axis.text=element_text(size=10))
+
+
+```
+
+
+```{r, fig.height= 3, fig.width=4}
+
+
+viralindex <-  DVTindex %>% 
+   filter(disease =="VeinClearing") %>% 
+#  mutate(source_seed = str_remove(source, "[:digit:]"))
+  mutate(source_seed = factor(case_when(source %in% paste("C",1:4,sep ="")~ "Central",
+                    source %in% paste("W",1:4,sep ="")~ "West",
+                    source %in% paste("E",1:4,sep ="")~ "East"),
+         levels = c("West","Central","East" ) )) %>%
+  #group_by(source_seed, source, score) %>%
+  group_by(source_seed, source) %>%
+summarise(avgscore = mean(score)) %>%
+
+
+  ggplot(aes(x = source_seed, y = score))+
+  stat_summary(aes(group = source_seed), geom = "bar",
+               color = "lightgrey",
+               alpha = .3)+
+    geom_text(aes(label = source),
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            size = 2.5,
+            fontface="bold")+
+  stat_summary(aes(group = source_seed,fill = source_seed), geom = "pointrange")+
+
+  geom_hline(yintercept = 0) + 
+  
+
+    guides(color = FALSE, fill = FALSE) +
+  labs(title ="", x="", y="Clear Leaf Vein Symptoms") +
+                theme_bw() +
+ scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) +
+ scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2")) + 
+ geom_jitter(aes(col=source_seed), 
+             alpha = .5, 
+             show.legend = FALSE, 
+             message = FALSE, 
+             position = position_dodge2(width = 0.9, preserve = "single"),
+             size = 6) +
+    ylim(-1.5, 1.5) + 
+  theme_bw() +
+  theme(axis.text=element_text(size=10))
+
+Rustindex
+Blotchindex
+viralindex
+Mainindex
+
+```
+
+```{r, fig.height=3, fig.width=4}
+
+toprowindex <- plot_grid(Rustindex,
+          Blotchindex,
+          viralindex,
+          labels = c('(B)', '(C)', '(D)'),
+          nrow = 1)
+
+plot_grid <- plot_grid(Mainindex,
+          toprowindex,
+          nrow = 2, ncol = 1,
+          rel_heights = c(1, 1),
+          labels = c("(A)", ""))
+
+```
+
+
+---
+
+#Figure 4: line graphs of disease scores across the common gardens 
+From: Figure6_DimPatho.rmd
+
+source: Zscores_Mar2021.R
+
+```{r, include=FALSE, error=FALSE}
+rm(list=ls(all=TRUE))
+SummaryleafBlotchZ <- read_csv("SummaryleafBlotchZ")
+
+SummaryleafBlotchZ$original_region<-factor(SummaryleafBlotchZ$original_region,levels=c("West", "Central", "East"))
+
+SummaryleafBlotchZ$Location.f=ifelse(SummaryleafBlotchZ$Location.f== "central","Central", 
+                                ifelse(SummaryleafBlotchZ$Location.f =="west","West",
+                                       ifelse(SummaryleafBlotchZ$Location.f=="east","East", "NA")))
+
+SummaryleafBlotchZ$Location.f<-factor(SummaryleafBlotchZ$Location.f,levels=c("West", "Central", "East"))
+
+SummaryleafrustZ <- read_csv("SummaryleafrustZ")
+
+SummaryleafrustZ$original_region<-factor(SummaryleafrustZ$original_region,levels=c("West", "Central", "East"))
+
+SummaryleafrustZ$Location.f=ifelse(SummaryleafrustZ$Location.f== "central","Central", 
+                                ifelse(SummaryleafrustZ$Location.f =="west","West",
+                                       ifelse(SummaryleafrustZ$Location.f=="east","East", "NA")))
+
+SummaryleafrustZ$Location.f<-factor(SummaryleafrustZ$Location.f,levels=c("West", "Central", "East"))
+
+```
+
+source: Zscores_Mar2021_Part2_kp.R, Eric
+
+ONLY 2020
+
+```{r, include=FALSE, error=FALSE}
+
+SummaryViralZ <- read_csv("SummaryViralZ")
+
+SummaryViralZ$Location.f=ifelse(SummaryViralZ$Location.f== "central","Central", 
+                                ifelse(SummaryViralZ$Location.f =="west","West",
+                                       ifelse(SummaryViralZ$Location.f=="east","East", "NA")))
+
+
+SummaryViralZ$Location.f<-factor(SummaryViralZ$Location.f,levels=c("West", "Central", "East"))
+```
+
+
+```{r}
+rustnew_zscore <- ggplot(data = SummaryleafrustZ, 
+                         aes(x= Location.f, y=LeafRustZScore,  color = original_region)) +
+
+  labs(title ="Rust Z Score", x="", y="Standard Deviations", size = 11) +
+  stat_summary(position = position_dodge(width = .02)) +
+  stat_summary( geom = "line", 
+                lty = 1,
+                alpha = .4,
+                aes( group = original_region), 
+               position = position_dodge(width = .02)) + 
+  geom_linerange(aes(ymin=LeafRustZScore-se, ymax=LeafRustZScore+se), 
+                position = position_dodge(width = .02)) +
+  theme_bw() +
+  labs(fill = "Original Prairie")+
+  facet_grid()+ 
+  theme(legend.position= "none") +
+        #legend.background = element_rect(
+         #                                linetype="solid", 
+          #                               colour = "Black"))+
+  guides(col=guide_legend("Original Region")) + 
+  
+  scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2"))+
+    scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2"))+
+  
+  geom_hline(yintercept = 0, col = "Black", lty = 2)+
+  coord_cartesian(xlim = c(1.30, 1.8))+
+
+  ylim(-1, 1) +
+  theme(axis.text=element_text(size=12))
+#    geom_text_repel(data = .%>% filter(Location.f == "East"), 
+ #                aes(label = original_region),
+  #               #repel to right
+   #           show.legend = FALSE,
+    #          nudge_x = .1,
+     #         size = 4.5,
+      #        point.padding = 0,) +
+   #annotate("text", x=2.2, y=.85, label= "Source Region", fontface = 2, size = 4.5) +
+  
+
+
+rustnew_zscore 
+
+```
+
+
+```{r}
+
+blotchnew_zscore <- ggplot(data = SummaryleafBlotchZ, aes(x= Location.f, y=LeafBlotchZScore,  color =  original_region)) +
+ # geom_bar(stat = "identity", position = position_dodge())+  
+  #geom_point(position = position_jitterdodge(dodge.width = .25, 
+    #                                        jitter.width = .1 ),
+   #          alpha  = .4) + #less jitter
+  labs(title ="Leaf Blotch Z Score", x="", y="Standard Deviations", size = 11) +
+  stat_summary(position = position_dodge(width = .1)) +
+  stat_summary( geom = "line", 
+                lty = 1,
+                alpha = .4,
+                aes( group = original_region), 
+               position = position_dodge(width = .1)) + 
+  geom_linerange(aes(ymin=LeafBlotchZScore-se, ymax=LeafBlotchZScore+se), 
+                position = position_dodge(width = .1), show.legend = FALSE, message = FALSE ) +
+  theme_bw() +
+  labs(fill = "Original Prairie")+
+  facet_grid()+ 
+  theme(legend.title = element_blank(), legend.position = "none")+
+  
+  scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2"))+
+    scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2"))+
+  
+  geom_hline(yintercept = 0, col = "Black", lty = 2)+
+ coord_cartesian(xlim = c(1.25, 2.8))+
+  ylim(-1, 1) +
+  theme(axis.text=element_text(size=12))
+      
+#coord_cartesian(xlim = c(1.5, 2.5))
+
+blotchnew_zscore 
+
+```
+
+
+```{r}
+
+new_zscore_viral <- ggplot(data = SummaryViralZ, aes(x= Location.f, y=ViralZScore,  color =  original_region)) +
+ # geom_bar(stat = "identity", position = position_dodge())+  
+  #geom_point(position = position_jitterdodge(dodge.width = .25, 
+    #                                        jitter.width = .1 ),
+   #          alpha  = .4) + #less jitter
+  labs(title ="Viral Z Score", x="Common Garden", y="Standard Deviations", size = 11) +
+  stat_summary(position = position_dodge(width = .1)) +
+  stat_summary( geom = "line", 
+                lty = 1,
+                alpha = .4,
+                aes( group = original_region), 
+               position = position_dodge(width = .1)) + 
+  geom_linerange(aes(ymin=ViralZScore-se, ymax=ViralZScore+se), 
+                position = position_dodge(width = .1), ) +
+  theme_bw() +
+  labs(fill = "Original Prairie")+
+  facet_grid()+ 
+  theme(legend.title = element_blank(), legend.position = "none")+
+  
+  scale_color_manual(values=c("#009E73", "#0072B2", "#D55E00"))+
+    scale_fill_manual(values=c( "#009E73", "#0072B2", "#D55E00"))+
+  
+  geom_hline(yintercept = 0, col = "Black", lty = 2)+
+ coord_cartesian(xlim = c(1.25, 2.8))+
+  ylim(-1.2, 1.2) +
+  theme(axis.text=element_text(size=12))
+
+ 
+new_zscore_viral 
+```
+
+
+Z SCORE PANEL
+```{r, fig.width=3, fig.height= 9}
+
+nofacet_zscore_panel <- plot_grid(rustnew_zscore, blotchnew_zscore, new_zscore_viral , 
+                                   labels = c('A', 'B', 'C'), 
+                                   label_size = 11,
+                                   #nrow = 1,
+                                   ncol = 1,
+                                   show.legend = FALSE)
+nofacet_zscore_panel
+
+```
+
+
+AB PLOTS
+
+From: Figure6_DimPatho.rmd
+
+Leaf Rust - AB Plots - Source: Graphs_2b_Mar2020_kp.rmd
+```{r, include=FALSE}
+
+SummaryleafrustABEW  <- read_csv("SummaryleafrustABEW")
+
+SummaryleafrustABEW$Location.f=ifelse(SummaryleafrustABEW$Location.f== "central","Central", 
+                                ifelse(SummaryleafrustABEW$Location.f =="west","West",
+                                       ifelse(SummaryleafrustABEW$Location.f=="east","East", "NA")))
+SummaryleafrustABEW$Location.f<-factor(SummaryleafrustABEW$Location.f,levels=c("West", "Central", "East"))
+SummaryleafrustABEW$source_prairie<-factor(SummaryleafrustABEW$source_prairie,levels=c("W1", "W2", "W3", "W4",
+                                                                                       "C1", "C2", "C3", "C4",
+                                                                                       "E1", "E2", "E3", "E4"))
+SummaryleafrustABEW$source_prairie2 = SummaryleafrustABEW$source_prairie
+SummaryleafrustABEW <- SummaryleafrustABEW %>% separate(source_prairie2,
+                c("Source_Prairie_letter", "SP_Other_name"), sep = "(?<=[A-Za-z])(?=[0-9])")
+SummaryleafrustABEW$Source_Prairie_letter<-factor(SummaryleafrustABEW$Source_Prairie_letter,levels=c("W", "C", "E"))
+
+```
+
+Blotch - AB Plots - Source: Graphs_2b_Mar2020_kp.rmd
+```{r, include=FALSE}
+SummaryblotchABPrairie <- read_csv("SummaryblotchABPrairie")
+
+SummaryblotchABPrairie$Location.f=ifelse(SummaryblotchABPrairie$Location.f== "central","Central", 
+                                ifelse(SummaryblotchABPrairie$Location.f =="west","West",
+                                       ifelse(SummaryblotchABPrairie$Location.f=="east","East", "NA")))
+SummaryblotchABPrairie$Location.f<-factor(SummaryblotchABPrairie$Location.f,levels=c("West", "Central", "East"))
+SummaryblotchABPrairie$source_prairie<-factor(SummaryblotchABPrairie$source_prairie,levels=c("W1", "W2", "W3", "W4",
+                                                                                       "C1", "C2", "C3", "C4",
+                                                                                       "E1", "E2", "E3", "E4"))
+SummaryblotchABPrairie$source_prairie2 = SummaryblotchABPrairie$source_prairie
+SummaryblotchABPrairie <- SummaryblotchABPrairie %>% separate(source_prairie2,
+                c("Source_Prairie_letter", "SP_Other_name"), sep = "(?<=[A-Za-z])(?=[0-9])")
+SummaryblotchABPrairie$Source_Prairie_letter<-factor(SummaryblotchABPrairie$Source_Prairie_letter,levels=c("W", "C", "E"))
+
+```
+
+Viral - AB Plots - Source: Graphs_2b_Mar2020_kp.rmd
+```{r, include=FALSE}
+
+SummaryviralABPrairie2 <- read_csv("SummaryviralABPrairie2")
+
+SummaryviralABPrairie2$Location.f=ifelse(SummaryviralABPrairie2$Location.f== "central","Central", 
+                                ifelse(SummaryviralABPrairie2$Location.f =="west","West",
+                                       ifelse(SummaryviralABPrairie2$Location.f=="east","East", "NA")))
+SummaryviralABPrairie2$Location.f<-factor(SummaryviralABPrairie2$Location.f,levels=c("West", "Central", "East"))
+SummaryviralABPrairie2$source_prairie<-factor(SummaryviralABPrairie2$source_prairie,levels=c("W1", "W2", "W3", "W4",
+                                                                                       "C1", "C2", "C3", "C4",
+                                                                                       "E1", "E2", "E3", "E4"))
+SummaryviralABPrairie2$source_prairie2 = SummaryviralABPrairie2$source_prairie
+SummaryviralABPrairie2 <- SummaryviralABPrairie2 %>% separate(source_prairie2,
+                c("Source_Prairie_letter", "SP_Other_name"), sep = "(?<=[A-Za-z])(?=[0-9])")
+SummaryviralABPrairie2$Source_Prairie_letter<-factor(SummaryviralABPrairie2$Source_Prairie_letter,levels=c("W", "C", "E"))
+```
+
+
+```{r, fig.height=3, fig.width=8}
+
+newABPlotleafrustEWFACET <- ggplot(data = SummaryleafrustABEW, 
+                                   aes(x=Location.f, 
+                                       y=leaf_rust, 
+                                       group = source_prairie , 
+                                       colour = source_prairie))+ 
+  
+  geom_line( alpha = .9)+
+  geom_point( show.legend = FALSE,
+              size = 1)+
+
+  labs(title ="", 
+       x="",
+       y="Leaf Rust (% of total leaf area affected)",
+       size = 2)+  
+  theme_bw() +
+    
+  stat_summary(aes(group=Source_Prairie_letter, color = Source_Prairie_letter), 
+               fun.y=mean,
+               geom="line", 
+               linetype = "dotted",
+               size = 1,
+               fullrange=TRUE,
+               show.legend = FALSE) +
+  guides(color=guide_legend(title="Source Prairies")) +
+  
+   scale_color_manual(values=c(
+       #stat green
+     "#00ba38",  
+     #prairies
+     "springgreen4", "darkgreen","chartreuse 2", "olivedrab",
+      #stat blue
+     "#619cff",
+     #prairies'
+     "darkcyan", "darkblue", "cyan", "slateblue3",
+    # stat red:
+     "#f8766d",
+     #prairies: 
+     "red", "red4","darkorange2", "firebrick2")) + 
+  facet_grid(~Source_Prairie_letter)+
+  
+   coord_cartesian(xlim = c(1.25, 1.80))+
+    
+  geom_text_repel(data = .%>% filter(Location.f == "East"), 
+                 aes( label = source_prairie),
+                 show.legend = FALSE,
+              size = 2,
+              nudge_x = .2,
+              check_overlap = TRUE,
+              color = "black",
+              min.segment.length = 0) +
+  
+  theme(legend.position = "none")+
+  theme(axis.text=element_text(size=12))+
+    theme(strip.text.x = element_text(size=10, colour = "white"),
+          strip.background = element_rect(colour="black", fill="grey30")) 
+
+newABPlotleafrustEWFACET
+
+
+```
+
+
+```{r, fig.height=3, fig.width=8}
+
+newABPlotleafblotchFACET <- ggplot(data = SummaryblotchABPrairie,
+                                   aes(x=Location.f, 
+                                       y=leaf_blotch, 
+                                       group = source_prairie , 
+                                       colour = source_prairie))+ 
+  
+  geom_line( alpha = .9)+
+  geom_point( show.legend = FALSE,
+              size = 1)+
+
+  labs(title ="", 
+       x="",
+       y="Leaf Blotch (% of total leaf area affected)",
+       size = 2)+  
+  theme_bw() +
+    
+  stat_summary(aes(group=Source_Prairie_letter, color = Source_Prairie_letter), 
+               fun.y=mean,
+               geom="line", 
+               linetype = "dotted",
+               size = 1,
+               fullrange=TRUE,
+               show.legend = FALSE) +
+  guides(color=guide_legend(title="Source Prairies")) +
+  
+
+   scale_color_manual(values=c(
+   
+       #stat green
+     "#00ba38",  
+     #prairies
+     "springgreen4", "darkgreen","chartreuse 2", "olivedrab",
+      #stat blue
+     "#619cff",
+     #prairies'
+     "darkcyan", "darkblue", "cyan", "slateblue3",
+    # stat red:
+     "#f8766d",
+     #prairies: 
+     "red", "red4","darkorange2", "firebrick2")) + 
+  facet_grid(~Source_Prairie_letter)+
+  
+  
+   coord_cartesian(xlim = c(1.25, 2.80))+
+    geom_text_repel(data = .%>% filter(Location.f == "East"), 
+                 aes( label = source_prairie),
+                 show.legend = FALSE,
+              size = 2,
+              nudge_x = .2,
+              check_overlap = TRUE,
+              color = "black",
+              min.segment.length = 0) +
+  
+   theme(legend.position = "none")+
+  theme(axis.text=element_text(size=12)) +
+  theme(strip.text.x = element_text(size=10, colour = "white"),
+          strip.background = element_rect(colour="black", fill="grey30"))
+
+newABPlotleafblotchFACET
+
+
+```
+
+```{r, fig.height=3, fig.width=8}
+
+newABPlotleafviralFACET <- ggplot(data = SummaryviralABPrairie2, 
+                                  aes(x=Location.f, 
+                                      y=viral_symptoms, 
+                                      group = source_prairie , 
+                                      colour = source_prairie))+ 
+  
+  geom_line( alpha = .9)+
+  geom_point( show.legend = FALSE,
+              size = 1)+
+
+  labs(title ="", 
+       x="Common Garden",
+       y="Silphium Clear Vein (Scaled Severity)",
+       size = 2)+  
+  theme_bw() +
+    
+  stat_summary(aes(group=Source_Prairie_letter, color = Source_Prairie_letter), 
+               fun.y=mean,
+               geom="line", 
+               linetype = "dotted",
+               size = 1,
+               fullrange=TRUE,
+               show.legend = FALSE) +
+  guides(color=guide_legend(title="Source Prairies")) +
+  
+   scale_color_manual(values=c(
+       #stat green
+     "#00ba38",  
+     #prairies
+     "springgreen4", "darkgreen","chartreuse 2", "olivedrab",
+      #stat blue
+     "#619cff",
+     #prairies'
+     "darkcyan", "darkblue", "cyan", "slateblue3",
+    # stat red:
+     "#f8766d",
+     #prairies: 
+     "red", "red4","darkorange2", "firebrick2")) + 
+  facet_grid(~Source_Prairie_letter)+
+  
+   coord_cartesian(xlim = c(1.25, 2.80))+
+    geom_text_repel(data = .%>% filter(Location.f == "East"), 
+                 aes( label = source_prairie),
+                 show.legend = FALSE,
+              size = 2,
+              nudge_x = .2,
+              check_overlap = TRUE,
+              color = "black",
+              min.segment.length = 0) +
+   theme(legend.position = "none") +
+  theme(axis.text=element_text(size=12)) +
+    theme(strip.text.x = element_text(size=10, colour = "white"),
+          strip.background = element_rect(colour="black", fill="grey30"))
+
+newABPlotleafviralFACET
+
+
+```
+
+
+```{r, fig.height=8, fig.width=11}
+
+ABZ <- plot_grid(newABPlotleafrustEWFACET, rustnew_zscore,
+          newABPlotleafblotchFACET, blotchnew_zscore,
+          newABPlotleafviralFACET, new_zscore_viral,
+          nrow = 3, ncol = 2,
+          rel_widths = c(1.5, 1),
+          labels = "AUTO")
+
+ABZ
+```
+
+
+                              
+                              
+                            

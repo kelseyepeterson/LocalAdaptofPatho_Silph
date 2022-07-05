@@ -1,0 +1,252 @@
+---
+title: "Figure5_prairieVScommongarden"
+author: "Kelsey Peterson"
+date: "3/23/2022"
+output: html_document
+---
+
+#Figure 5 -Correlations between disease scores in the prairie and disease scores in the common gardens
+
+
+load Data
+```{r, include=FALSE}
+rm(list=ls(all=TRUE))
+insitudata<- read.table("2019and2020Prairie_data.txt",header=T, as.is=TRUE)
+
+reciptransplantdata <- read.table("SEPT2019_2020_COMPILED_2B_DATACOLL_plots_longversion.txt",header=T, as.is=TRUE)
+```
+
+
+
+```{r, include=FALSE}
+
+insitudata$Region=ifelse(insitudata$Region=="C","Central", 
+                                ifelse(insitudata$Region=="W","West",
+                                       ifelse(insitudata$Region=="E","East", "NA")))
+
+insitudata$Prairie=ifelse(insitudata$Prairie=="C1","C1_SIL", 
+                                ifelse(insitudata$Prairie=="C2","C2_SIL",
+                                       ifelse(insitudata$Prairie=="C3","C3_SIL",
+                                              ifelse(insitudata$Prairie=="C4","C4_SIL",
+                                                     ifelse(insitudata$Prairie=="E1","E1_SIL", 
+                                ifelse(insitudata$Prairie=="E2","E2_SIL",
+                                       ifelse(insitudata$Prairie=="E3","E3_SIL",
+                                              ifelse(insitudata$Prairie=="E4","E4_SIL",
+                                                     ifelse(insitudata$Prairie=="W1","W1_SIL", 
+                                ifelse(insitudata$Prairie=="W2","W2_SIL",
+                                       ifelse(insitudata$Prairie=="W3","W3_SIL",
+                                              ifelse(insitudata$Prairie=="W4","W4_SIL", "NA"))))))))))))
+
+```
+
+
+```{r, include=FALSE}
+
+avgnewprairiedata2019_c <- insitudata %>%
+  filter(Year == "2019") %>%
+  group_by(Year, Prairie) %>%
+  dplyr::summarise(avgLRPR = mean(leaf_rust, na.rm = TRUE),
+            avgLBPR = mean(Leaf_blotch, na.rm = TRUE),
+            avgVIRPR = mean(viral_percent, na.rm = TRUE)) 
+  
+
+avgnewprairiedata2020_c <- insitudata %>%
+  filter(Year == "2020") %>%
+  group_by(Year, Prairie) %>%
+  dplyr::summarise(avgLRPR = mean(leaf_rust, na.rm = TRUE),
+            avgLBPR = mean(Leaf_blotch, na.rm = TRUE),
+            avgVIRPR = mean(viral_symptoms, na.rm = TRUE)) 
+  
+  
+  
+prairiecombo <- rbind(avgnewprairiedata2020_c, avgnewprairiedata2019_c) %>% 
+  dplyr ::rename(plot_id = "Prairie") 
+
+prairiecombo
+
+```
+
+```{r, include=FALSE}
+
+reciptransplantdata$Location=ifelse(reciptransplantdata$Location=="central","Central", 
+                                ifelse(reciptransplantdata$Location=="west","West",
+                                       ifelse(reciptransplantdata$Location=="east","East", "NA")))
+
+```
+
+
+
+
+```{r, include=FALSE}
+
+glimpse(reciptransplantdata)
+
+avgnewRT_data2019 <- reciptransplantdata %>%
+ # filter(Year == "2019") %>%
+  group_by( plot_id, Year) %>%
+  dplyr::summarise(avgLRCG = mean(leaf_rust, na.rm = TRUE), 
+            avgLBCG = mean(leaf_blotch, na.rm = TRUE), 
+            avgVIRCG = mean(CLVESEV_SEPT_2019, na.rm = FALSE)) 
+
+avgnewRT_data2019
+
+avgnewRT_data2020 <- reciptransplantdata %>%
+  filter(Year == "2020") %>%
+  group_by( plot_id, Year) %>%
+  dplyr::summarise(avgLRCG = mean(leaf_rust, na.rm = TRUE), 
+            avgLBCG = mean(leaf_blotch, na.rm = TRUE), 
+            avgVIRCG = mean(viral_symptoms, na.rm = FALSE)) 
+
+
+
+commonGardencombo <- rbind(avgnewRT_data2020, avgnewRT_data2019)
+   
+commonGardencombo
+```
+
+
+```{r, include=FALSE}
+AllDisDataAVG <- merge(commonGardencombo, prairiecombo)
+
+write.csv(AllDisDataAVG, "AllDisDataAVG_KP_Newfeb2022.csv")
+
+ALLDatacombined <- AllDisDataAVG %>%
+  mutate(Plot_id = plot_id) %>%
+  separate(plot_id, c("source_prairie", "species"), "_")
+
+glimpse(ALLDatacombined)
+
+
+
+Yearscombined <- ALLDatacombined %>%
+  group_by(source_prairie) %>%
+  dplyr::summarise_at(vars(-species), funs(mean(., na.rm=TRUE))) %>%
+  mutate(Source_Prairie = source_prairie) %>%
+  separate(source_prairie, c("region", "pr_num"), "")
+
+yrscombo_forVirus <- ALLDatacombined %>%
+   group_by(source_prairie) %>%
+    filter(Year =="2020") %>%
+  mutate(Source_Prairie = source_prairie) %>%
+  separate(source_prairie, c("region", "pr_num"), "")
+  
+ 
+
+glimpse(Yearscombined)
+```
+
+
+```{r, fig.width=3, fig.height=3}
+
+
+AllLRBothYears <- Yearscombined %>%
+
+  #filter(Year =="2020") %>%
+  ggplot(aes(x= avgLRPR,
+             y= avgLRCG,
+             colour = pr_num))+ 
+  geom_point(aes(), size = 4, 
+             show.legend = FALSE, 
+             message = FALSE, 
+             alpha = .5  ) +
+  #scale_y_continuous(trans="log1p")+
+   # scale_x_continuous(trans="log1p")+
+  
+  labs(title =" Leaf Rust ", x="Prairie Remnant Scores", y="Common Garden Scores")  +
+  
+  #ylim(0, 3) + xlim(0,3)+
+ theme_bw()+ 
+#  theme(legend.position = c(.95, .95),
+  #  legend.justification = c("right", "top"),
+   # legend.box.just = "right") +
+  #theme(aspect.ratio=1) +
+  
+   geom_text(aes(label = Source_Prairie, color = "Black"), 
+             size = 3,
+             check_overlap = FALSE,
+             
+             show.legend = FALSE,
+             color = "Black",
+             fontface="bold") + 
+   geom_smooth(method="lm", 
+              se= FALSE, 
+              fullrange= FALSE, 
+              level=0.95,
+              color = "grey") +
+ scale_color_manual(values=c( "#009E73", "#0072B2", "#D55E00")) 
+
+AllLRBothYears
+
+```
+
+
+```{r, fig.width=3, fig.height=3}
+
+AllLBBothYears <-Yearscombined %>%
+  #filter(Year =="2020") %>%
+  ggplot(aes(x= avgLBPR,
+             y= avgLBCG ,
+             color = pr_num))+ 
+  geom_point(aes( ), size = 4, 
+             show.legend = FALSE,
+             message = FALSE, 
+             alpha = .5  ) +
+  labs(title =" Leaf Blotch ", x="Prairie Remnant Scores", y="Common Garden Scores")  +
+  #ylim(0, 2) + xlim(0,2)+ 
+  theme_bw()+ 
+  #theme(aspect.ratio=1)+
+  
+  
+   geom_text(aes(label = Source_Prairie, color = "Black"), 
+             size = 3,
+             check_overlap = TRUE,
+             show.legend = FALSE,
+             color = "Black",
+             fontface="bold") + 
+ scale_color_manual(values=c( "#009E73", "#0072B2", "#D55E00")) +
+     geom_smooth(method="lm", 
+              se= FALSE, 
+              fullrange= TRUE, 
+              level=0.95,
+              color = "grey") 
+
+AllLBBothYears
+
+```
+
+
+```{r, fig.width=3, fig.height=3}
+
+AllVIR2020 <- yrscombo_forVirus %>%
+  
+  ggplot( aes(x= avgVIRPR, 
+              y=  avgVIRCG, 
+              color = pr_num))+ 
+  geom_point(aes(), size = 4, 
+             show.legend = FALSE,
+             message = FALSE,
+             alpha = .5 ) +
+  labs(title =" Silphium Clear Vein in 2020", x=" Prairie Remnant Scores", y=" Common Garden Scores")  +
+  #ylim(0, 10) + xlim(0,10)+ 
+  theme_bw()+ 
+  #theme(aspect.ratio=1) +
+  
+   geom_text(aes(label = Source_Prairie, color = "Black"), 
+             size = 3,
+             check_overlap = FALSE,
+             show.legend = FALSE,
+             color = "Black",
+             fontface="bold") + 
+  scale_color_manual(values=c( "#009E73", "#0072B2", "#D55E00")) +
+     geom_smooth(method="lm", 
+              se= FALSE, 
+              fullrange= TRUE, 
+              level=0.95,
+              color = "grey") 
+
+
+
+AllVIR2020
+
+```
+

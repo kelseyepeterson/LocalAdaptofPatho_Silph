@@ -1,0 +1,353 @@
+---
+title: "RTavgDiseases"
+author: "Kelsey Peterson"
+date: "8/3/2021"
+output: html_document
+---
+
+Packages
+```{r, include=FALSE}
+library(readr)
+library(tidyverse)
+library(dplyr)
+library(ggrepel)
+library(cowplot)
+library(pixiedust)
+library(kableExtra)
+
+```
+
+Reciprocal Transplant Plot Data   
+```{r, include=FALSE}
+reciptransplantdata <- read.table("SEPT2019_2020_COMPILED_2B_DATACOLL_plots_longversion.txt",header=T, as.is=TRUE)
+```
+
+```{r, include=FALSE}
+
+reciptransplantdata$Location=ifelse(reciptransplantdata$Location=="central","Central", 
+                                ifelse(reciptransplantdata$Location=="west","West",
+                                    ifelse(reciptransplantdata$Location=="east","East", "NA")))
+
+```
+
+```{r}
+
+RTtotal <- reciptransplantdata %>%
+  dplyr::mutate( plot_id2 = plot_id) %>%
+  separate(plot_id2, c("Source_Prairie", "species"), "_") %>%
+  separate(source_prairie, c("source_region", "prairienum"), "") %>%
+  dplyr::group_by(Location, plot_id, Source_Prairie, Year, source_region) %>% 
+  dplyr::summarise(avgLR = mean(leaf_rust, na.rm = TRUE), 
+            avgLB = mean(leaf_blotch, na.rm = TRUE),
+            avg20VIR = mean(viral_symptoms, na.rm = TRUE),
+            avg19VIR = mean(CLVESEV_SEPT_2019, na.rm = TRUE))
+
+  
+
+RT2019 <- RTtotal %>%
+  dplyr::filter(Year == "2019")
+
+RT2020 <- RTtotal %>%
+  dplyr::filter(Year == "2020")
+
+
+
+#RTtotal$Location=ifelse(RTtotal$Location=="central","Central", 
+ #                               ifelse(RTtotal$Location=="west","West",
+  #                                     ifelse(RTtotal$Location=="east","East", "NA")))
+
+RTtotal$Location<-factor(RTtotal$Location,levels=c("West", "Central", "East"))
+RT2019$Location<-factor(RT2019$Location,levels=c("West", "Central", "East"))
+RT2020$Location<-factor(RT2020$Location,levels=c("West", "Central", "East"))
+
+
+```
+
+reciptransplantdata
+
+
+
+
+LEAF RUST 
+```{r}
+
+RTLR <- RTtotal %>%
+  mutate(num_reg = as.numeric(Location),
+   x_for_p = num_reg + (as.numeric(Source_Prairie))) %>%
+  ggplot(aes(x=Location, y=avgLR)) +
+  facet_grid(~Year )+
+  geom_bar(aes(),
+           fill = "gray80",
+           stat = "summary",
+           fun.y = "mean",
+           position = position_dodge2(width = 0.9, preserve = "single"),
+           show.legend = FALSE,
+           alpha = .9) +
+  stat_summary(fun.data = mean_se,  
+                 geom = "pointrange",
+                 color = "black") +
+   geom_point(aes( x = x_for_p,  
+                  color = Location), 
+                  show_legend = FALSE,
+                  size = 4,
+             alpha = .6) +
+    geom_text(aes(label = x_for_p, color = "Black"), 
+             size = 2.3,
+             check_overlap = FALSE,
+             position = position_dodge2(width = .8, preserve = "single"),
+             show.legend = FALSE,
+             color = "Black",
+             fontface="bold") + 
+  
+  labs(title ="", x="", y="Leaf Rust") + 
+
+                theme_bw() +
+  scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) 
+                              
+RTLR
+```
+
+
+LEAF BLOTCH 
+```{r}
+RTLB <- RTtotal %>%
+  #mutate(num_reg = as.numeric(Location),
+  # x_for_p = num_reg + (as.numeric(Source_Prairie))) %>%
+  ggplot(aes(x=Location, y=avgLB)) +
+  facet_grid(~Year )+
+  geom_bar(aes(),
+           fill = "gray80",
+           stat = "summary",
+           fun.y = "mean",
+           position = position_dodge2(width = 0.9, preserve = "single"),
+           alpha = .9) +
+  stat_summary(fun.data = mean_se,  
+                 geom = "pointrange",
+                 color = "black") +
+geom_jitter(aes(color = Location),
+              alpha = .6,
+              size = 2,
+            show.legend = FALSE)+
+  stat_summary(aes(label=round(..y..,2)),
+                fun.y=mean, 
+                geom="text", 
+                size = 3,
+             vjust = -2.3) +
+
+  labs(title ="", x="", y="Leaf Blotch") + 
+
+                theme_bw() +
+  scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) 
+                              
+RTLB
+```
+
+Viral 
+```{r}
+RTvir<- RTtotal %>%
+  #mutate(num_reg = as.numeric(Location),
+  # x_for_p = num_reg + (as.numeric(Source_Prairie))) %>%
+  ggplot(aes(x=Location, y=avg20VIR)) +
+  facet_grid(~Year )+
+  geom_bar(aes(),
+           fill = "gray80",
+           stat = "summary",
+           fun.y = "mean",
+           position = position_dodge2(width = 0.9, preserve = "single"),
+           show.legend = FALSE,
+           alpha = .9) +
+  stat_summary(fun.data = mean_se,  
+                 geom = "pointrange",
+                 color = "black") +
+ geom_jitter(aes(color = Location),
+              alpha = .6,
+              size = 2,
+            show.legend = FALSE)+
+  stat_summary(aes(label=round(..y..,2)),
+                fun.y=mean, 
+                geom="text", 
+                size = 3,
+             vjust = -2.3) +
+
+  labs(title ="", x="Common Garden", y="Viral Percentage and Symptoms") + 
+
+                theme_bw() +
+  scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2"))
+                              
+RTvir
+```
+
+
+```{r, fig.height= 9, fig.width=6}
+
+
+plot_grid(RTLR,
+          RTLB,
+          RTvir,
+          nrow = 3, ncol = 1,
+          labels = c('A', 'B', 'C' ),
+          label_size = 12)
+
+
+```
+
+LEAF RUST 
+```{r}
+
+
+RTLR2 <- RTtotal %>%
+  #mutate(num_reg = as.numeric(Location),
+  # x_for_p = num_reg + (as.numeric(Source_Prairie))) %>%
+  ggplot(aes(x=Location, y=avgLR, fill = Location)) +
+  
+  geom_bar(aes(),
+           #fill = Location,
+           stat = "summary",
+           fun.y = "mean",
+           position = position_dodge2(width = 0.9, preserve = "single"),
+           show.legend = FALSE,
+           alpha = .7) +
+  stat_summary(fun.data = mean_se,  
+                 geom = "pointrange",
+                 color = "black",
+               show.legend = FALSE) +
+
+  stat_summary(aes(label=round(..y..,2)),
+                fun.y=mean, 
+                geom="text", 
+                size = 3,
+             vjust = -2.3) +
+  
+  labs(title ="", x="", y="Leaf Rust (% of total leaf area affected)") + 
+ facet_wrap(~Year)+
+
+                theme_bw() +
+  scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2"))
+  
+                              
+RTLR2
+```
+
+
+LEAF BLOTCH 
+```{r}
+RTLB2 <- RTtotal %>%
+   #mutate(num_reg = as.numeric(Location),
+  # x_for_p = num_reg + (as.numeric(Source_Prairie))) %>%
+  ggplot(aes(x=Location, y=avgLB, fill = Location)) +
+  
+  geom_bar(aes(),
+           #fill = Location,
+           stat = "summary",
+           fun.y = "mean",
+           position = position_dodge2(width = 0.9, preserve = "single"),
+           show.legend = FALSE,
+           alpha = .7) +
+  stat_summary(fun.data = mean_se,  
+                 geom = "pointrange",
+                 color = "black",
+               show.legend = FALSE) +
+
+  stat_summary(aes(label=round(..y..,2)),
+                fun.y=mean, 
+                geom="text", 
+                size = 3,
+             vjust = -2.3) +
+
+  labs(title ="", x="", y="Leaf Blotch (% of total leaf area affected)") + 
+  facet_wrap(~Year) +
+                theme_bw() +
+  scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2")) 
+                              
+RTLB2
+```
+
+Viral 
+```{r}
+RTvir19 <- RTtotal %>%
+  #mutate(Location  = fct_relevel(Location, "West","Central","East")) %>%
+  #mutate(num_reg = as.numeric(Location),
+  # x_for_p = num_reg + (as.numeric(Source_Prairie))) %>%
+  ggplot(aes(x=Location, y=avg19VIR, fill = Location)) +
+  
+  geom_bar(aes(),
+           #fill = Location,
+           stat = "summary",
+           fun.y = "mean",
+           position = position_dodge2(width = 0.9, preserve = "single"),
+           show.legend = FALSE,
+           alpha = .7) +
+  stat_summary(fun.data = mean_se,  
+                 geom = "pointrange",
+                 color = "black",
+               show.legend = FALSE) +
+
+  stat_summary(aes(label=round(..y..,2)),
+                fun.y=mean, 
+                geom="text", 
+                size = 3,
+             vjust = -2.3) +
+
+  labs(title ="", x="Common Garden", y="Viral Percentage 2019") + 
+  facet_wrap(~Year) +
+                theme_bw() +
+  scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2")) 
+       
+RTvir19                       
+
+```
+
+```{r}
+RTvir20 <- RTtotal %>%
+  #mutate(Location  = fct_relevel(source_region, "West","Central","East")) %>%
+  #mutate(num_reg = as.numeric(Location),
+  # x_for_p = num_reg + (as.numeric(Source_Prairie))) %>%
+  ggplot(aes(x=Location, y=avg20VIR, fill = Location)) +
+  
+  geom_bar(aes(),
+           #fill = Location,
+           stat = "summary",
+           fun.y = "mean",
+           position = position_dodge2(width = 0.9, preserve = "single"),
+           show.legend = FALSE,
+           alpha = .7) +
+  stat_summary(fun.data = mean_se,  
+                 geom = "pointrange",
+                 color = "black",
+               show.legend = FALSE) +
+ 
+  stat_summary(aes(label=round(..y..,2)),
+                fun.y=mean, 
+                geom="text", 
+                size = 3,
+             vjust = -2.3) +
+
+  labs(title ="", x="Common Garden", y="Viral Symptoms 2020") + 
+  facet_wrap(~Year) +
+                theme_bw() +
+  scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2")) 
+       
+RTvir20                     
+
+```
+
+
+```{r, fig.height= 9, fig.width=6}
+
+
+plot_grid(RTLR2,
+          RTLB2,
+          RTvir19,
+          RTvir20,
+          nrow = 4, ncol = 1,
+          #labels = c('A', 'B', 'C' ),
+          label_size = 12)
+
+
+```
+
+
+
+
+
+

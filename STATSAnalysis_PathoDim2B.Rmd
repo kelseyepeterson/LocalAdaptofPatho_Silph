@@ -1,0 +1,484 @@
+---
+title: "StatsAnalysis_Dim2bPaper"
+author: "Kelsey Peterson"
+date: "3/17/2022"
+output: html_document
+---
+
+
+Load libraries
+```{r}
+
+#load necessary packages using the #install.packages() function
+
+library(readr)
+library(tidyverse)
+library(readxl)
+library(lme4)
+library(emmeans)
+library(lmerTest)
+library(lsmeans)
+library(car)
+library(multcomp)
+library(nlme)
+
+```
+
+Study 1: Prairie Remnants
+```{r}
+rm(list=ls(all=TRUE))
+insitudata<- read.table("2019and2020Prairie_data.txt",header=T, as.is=TRUE)
+#glimpse(insitudata)
+
+propleaf_rust <- (insitudata$leaf_rust + .0001)/100
+tdata_long <- cbind(insitudata,log(propleaf_rust/(1-propleaf_rust))) 
+tdata_long$tleaf_rust <- (log(propleaf_rust/(1-propleaf_rust))) 
+propleaf_blotch <- (insitudata$Leaf_blotch + .0001)/100
+tdata_long$tleaf_blotch <-(log(propleaf_blotch/(1-propleaf_blotch))) 
+
+```
+
+STUDY 1
+```{r}
+
+MEMPrairieRUST <- lmer(propleaf_rust ~ Year*Region + (1|Prairie), data = insitudata)
+MEMPrairieRUST 
+#RE Prairie  - std dev 0.001028
+#Residual  - std dev 0.002493
+#variance calculations
+sqrt( 0.001028) #  0.03206244
+sqrt( 0.002493) # 0.04992995
+Anova(MEMPrairieRUST)
+
+
+MEMPrairieBLOTCH <- lmer(propleaf_blotch ~ Year*Region + (1|Prairie), data = insitudata)
+MEMPrairieBLOTCH
+#RE Prairie  - std dev 0.06927
+#Residual  - std dev 0.13096
+#variance calculations
+sqrt( 0.06927) #  0.2631919
+sqrt( 0.13096) # 0.361884
+Anova(MEMPrairieBLOTCH)
+
+#post hoc test
+contrast(emmeans(MEMPrairieBLOTCH, "Region"), method = "pairwise", adjust = "holm")
+
+
+
+insitudata  <- insitudata %>% 
+  mutate(viral_z = 
+           case_when(!is.na(viral_symptoms) ~  (viral_symptoms - mean(viral_symptoms,na.rm = TRUE))  /
+                       sd(viral_symptoms,na.rm = TRUE) ,
+                     !is.na(viral_percent) ~  (viral_percent - mean(viral_percent,na.rm = TRUE))  /
+                       sd(viral_percent,na.rm = TRUE) ))
+
+         
+
+MEMPrairieViral <-  lmer(viral_z ~ Region*Year + (1|Prairie), data = insitudata)
+Anova(MEMPrairieViral)
+
+MEMPrairieViral
+
+contrast(emmeans(MEMPrairieViral, "Region"), method = "pairwise", adjust = "holm")
+
+sqrt(0.4684) # 0.6843975
+
+```
+
+
+Study 2: Table 2
+
+```{r Long format}
+rm(list=ls(all=TRUE))
+
+data_long<- read.table("SEPT2019_2020_COMPILED_2B_DATACOLL_plots_longversion.txt",header=T, as.is=TRUE)
+data_longEW<- read.table("SEPT2019_2020_COMPILED_2B_DATACOLL_plots_longversion.txt",header=T, as.is=TRUE)
+
+data_long$Year.f<-as.factor(data_long$Year)
+data_long$rep.f<-as.factor(data_long$rep)
+data_long$row.f<-as.factor(data_long$row)
+data_long$column.f<-as.factor(data_long$column)
+data_long$Location.f<-as.factor(data_long$Location)
+data_long$original_region<-as.factor(data_long$original_region)
+
+#We make a data set for just east and west planting sites because there was no rust in the central site and it was changing/skewing out graphs and analysis
+data_longEW$Year.f<-as.factor(data_longEW$Year)
+data_longEW$rep.f<-as.factor(data_longEW$rep)
+data_longEW$row.f<-as.factor(data_longEW$row)
+data_longEW$column.f<-as.factor(data_longEW$column)
+data_longEW$Location.f<-as.factor(data_longEW$Location)
+data_longEW$original_region<-as.factor(data_longEW$original_region)
+
+keep<- c("west", "east")
+data_longEW<-subset(data_long, Location %in% keep)
+
+data_long$Location.f<-factor(data_long$Location.f,levels=c("west", 
+                                                           "central",
+                                                           "east"))
+data_long$source_prairie<-factor(data_long$source_prairie,levels=c("W1", "W2", "W3", "W4",
+                                                                   "C1", "C2", "C3", "C4",
+                                                                   "E1", "E2", "E3", "E4"))
+
+data_longEW$Location.f<-factor(data_longEW$Location.f,levels=c("west",
+                                                               "east"))
+data_longEW$source_prairie<-factor(data_longEW$source_prairie,levels=c("W1", "W2", "W3", "W4",
+                                                                       "C1", "C2", "C3", "C4",
+                                                                       "E1", "E2", "E3", "E4"))
+
+
+```
+
+```{r Transform long data}
+#Transform data
+#List of measurements that need to be transformed- leaf_rust, stem_rust, leaf_blotch
+propleaf_rust <- (data_long$leaf_rust + .0001)/100
+tdata_long <- cbind(data_long,log(propleaf_rust/(1-propleaf_rust))) 
+tdata_long$tleaf_rust <- (log(propleaf_rust/(1-propleaf_rust))) 
+propleaf_blotch <- (data_long$leaf_blotch + .0001)/100
+tdata_long$tleaf_blotch <-(log(propleaf_blotch/(1-propleaf_blotch))) 
+
+### Transform for DatalongEW
+propleaf_rust <- (data_longEW$leaf_rust + .0001)/100
+tdata_longEW <- cbind(data_longEW,log(propleaf_rust/(1-propleaf_rust)))
+tdata_longEW$tleaf_rust <- (log(propleaf_rust/(1-propleaf_rust))) 
+tdata_longEW$Location.f<-as.factor(data_longEW$Location)
+tdata_long$Location.f<-as.factor(data_long$Location)
+
+```
+
+
+```{r mixed model to test home and away hypothesis long data}
+
+#mixed model to test home and away hypothesis
+
+##this was used to produce Table 2. Values were rounded using significant figures 
+mm.ltleaf_rust <- lmer(tleaf_rust ~ Location.f + original_region +  Year.f + rep.f: Location.f + Location.f: Year.f + original_region*Location.f + Location.f*original_region*Year.f + (1 | plot_id:original_region) + (1 | plot_id:original_region:Location.f),  data=tdata_long)
+
+summary(mm.ltleaf_rust)
+Anova(mm.ltleaf_rust) #Table 2 for rust here 
+
+emmeans(mm.ltleaf_rust, pairwise~Location.f) 
+
+
+source_locationmmeanslfrust <- emmeans(mm.ltleaf_rust, "Location.f", type="response")
+source_yearemmeanslfrust <- emmeans(mm.ltleaf_rust, "Year.f", type="response")
+cld(source_locationmmeanslfrust, Letters= letters)## used for statistical grouping of Leaf rust in Table 1.
+cld(source_yearemmeanslfrust, Letters= letters)## used for statistical grouping of Leaf rust in Table S1.
+
+
+SE_RUST <- tdata_long %>% 
+  group_by(Location.f)%>% 
+  dplyr::summarise(sd = sd(leaf_rust), mean = mean(leaf_rust), n = n(), se = sd/sqrt(n))
+SE_RUST # for table 1
+
+SE_RUSTpopmeans <- tdata_long %>% 
+  group_by(plot_id)%>% 
+  dplyr::summarise(sd = sd(leaf_rust), mean = mean(leaf_rust), n = n(), se = sd/sqrt(n))
+SE_RUSTpopmeans # for table s2
+
+
+SE_RUSTyear <- tdata_long %>% 
+  group_by(Year)%>% 
+  dplyr::summarise(sd = sd(leaf_rust), mean = mean(leaf_rust), n = n(), se = sd/sqrt(n))
+SE_RUSTyear # for table s1
+
+```
+
+```{r}
+
+##this was used to produce Table 2. Values were rounded using significant figures 
+mm.ltleaf_blotch <- lmer(tleaf_blotch ~ Location.f + original_region +  Year.f + rep.f: Location.f + Location.f: Year.f + original_region*Location.f + Location.f*original_region*Year.f + (1 | plot_id:original_region) + (1 | plot_id:original_region:Location.f),  data=tdata_long, REML=TRUE)
+
+
+summary(mm.ltleaf_blotch)
+Anova(mm.ltleaf_blotch) #Table 2 for leaf blotch info
+
+emmeans(mm.ltleaf_blotch, pairwise~Location.f)
+emmeans(mm.ltleaf_blotch, pairwise~Year.f)
+
+source_prairieemmeansblotch<-emmeans(mm.ltleaf_blotch, "Location.f", type="response")
+source_locationmmeansblotch<-emmeans(mm.ltleaf_blotch, "Location.f", type="response")
+cld(source_locationmmeansblotch, Letters= letters) #Groupings fo table 1 for leaf blotch 
+
+
+SE_BLOTCH <- tdata_long %>% 
+  group_by(Location.f)%>% 
+  dplyr::summarise(sd = sd(leaf_blotch), mean = mean(leaf_blotch), n = n(), se = sd/sqrt(n))
+
+SE_BLOTCH
+
+SE_Blotchpopmeans <- tdata_long %>% 
+  group_by(plot_id)%>% 
+  dplyr::summarise(sd = sd(leaf_blotch), mean = mean(leaf_blotch), n = n(), se = sd/sqrt(n))
+SE_Blotchpopmeans
+
+SE_blotchyear <- tdata_long %>% 
+  group_by(Year)%>% 
+  dplyr::summarise(sd = sd(leaf_blotch), mean = mean(leaf_blotch), n = n(), se = sd/sqrt(n))
+SE_blotchyear # for table s1
+```
+
+
+```{r}
+
+#THIS IS ONLY 2020
+mm.viral <- lmer(viral_symptoms ~ Location.f + original_region + rep.f: Location.f + original_region*Location.f + Location.f*original_region + (1 | plot_id:original_region) + (1 | plot_id:original_region:Location.f),  data=tdata_long, REML=TRUE)
+
+summary(mm.viral)
+Anova(mm.viral) #Table 2 for viral info
+
+emmeans(mm.viral, pairwise~Location.f, Letters= letters) 
+
+source_locationmmeansviral<-emmeans(mm.viral, "Location.f", type="response")
+cld(source_locationmmeansviral, Letters= letters) #Groupings fo table 1 for viral 
+
+SE_Viral <- tdata_long %>% 
+  dplyr::filter(Year == 2020) %>%
+  group_by(Location.f)%>% 
+  dplyr::summarise(sd = sd(viral_symptoms), mean = mean(viral_symptoms), n = n(), se = sd/sqrt(n))
+
+SE_Viral
+
+SE_viralpopmeans <- tdata_long %>% 
+  dplyr::filter(Year == 2020) %>%
+  group_by(plot_id)%>% 
+  dplyr::summarise(sd = sd(viral_symptoms), mean = mean(viral_symptoms), n = n(), se = sd/sqrt(n))
+SE_viralpopmeans
+
+SE_viralyear <- tdata_long %>% 
+  dplyr::filter(Year == 2020) %>%
+  group_by(Year)%>% 
+  dplyr::summarise(sd = sd(viral_symptoms), mean = mean(viral_symptoms), n = n(), se = sd/sqrt(n))
+SE_viralyear # for table s1
+
+```
+
+
+
+
+
+```{r Genotype Mixed model long data}
+####Genotype Mixedmodel
+
+#Leaf Rust
+gmm.ltleaf_rust <- lme(tleaf_rust ~ plot_id + Location.f + Year.f + rep.f: Location.f + plot_id*Location.f, random=~1|Year.f/Location.f/rep.f, data=tdata_longEW)
+
+gmm.ltleaf_rust
+summary(gmm.ltleaf_rust)
+Anova(gmm.ltleaf_rust)
+
+emmeans(gmm.ltleaf_rust, pairwise~Location.f) 
+emmeans(gmm.ltleaf_rust, pairwise~plot_id|Location.f)
+
+source_prairieemmeansrust <- emmeans(gmm.ltleaf_rust, "plot_id", type="response")
+source_prairie_Locemmeansrust <- emmeans(gmm.ltleaf_rust, "plot_id","Location.f", type="response")
+
+cld(source_prairieemmeansrust, Letters= letters)# used for Table S2
+cld(source_prairie_Locemmeansrust, Letters= letters)
+
+contrast(emmeans(gmm.ltleaf_rust, "plot_id"), method = "pairwise", adjust = "holm")
+
+popmeansrust <- tdata_long %>% 
+  group_by(plot_id)%>% 
+  dplyr::summarise(sd = sd(leaf_rust), mean = mean(leaf_rust), n = n(), se = sd/sqrt(n))
+
+popmeansrust
+
+```
+
+```{r}
+
+
+#Leaf Blotch 
+gmm.ltleaf_blotch <- lme(tleaf_blotch ~ plot_id + Location.f + Year.f + rep.f: Location.f + plot_id*Location.f, random=~1|Year.f/Location.f/rep.f, data=tdata_long)
+
+summary(gmm.ltleaf_blotch)
+Anova(gmm.ltleaf_blotch)
+
+emmeans(gmm.ltleaf_blotch, pairwise~Location.f)
+emmeans(gmm.ltleaf_blotch, pairwise~Year.f)
+emmeans(gmm.ltleaf_blotch, "Location.f", type="response")
+
+BlotchGroup <- emmeans(gmm.ltleaf_blotch,"plot_id", type='response')
+
+cld(BlotchGroup, Letters=letters) # used for Table S2
+```
+
+```{r}
+
+#### Viral MM and AB plot 
+tdata_long2020<-subset(tdata_long,Year.f == "2020")
+
+
+#THIS IS ONLY 2020 which is what it is supposed to be
+gmm.viral <- lme(viral_symptoms ~ plot_id + Location.f + rep.f: Location.f + plot_id*Location.f, random=~1|Location.f/rep.f, data=tdata_long2020)
+
+summary(gmm.viral)
+Anova(gmm.viral)
+
+emmeans(gmm.viral, pairwise~Location.f) 
+emmeans(gmm.viral, pairwise~plot_id)
+
+source_locationmmeansviral <- emmeans(gmm.viral, "Location.f", type="response")
+source_prairieemmeansviral <- emmeans(gmm.viral, "plot_id", type="response")
+
+emmeans(gmm.viral, pairwise ~plot_id|Location.f, type="response")
+cld(source_locationmmeansviral, Letters= letters)
+cld(source_prairieemmeansviral, Letters= letters)# used for table S2
+
+```
+
+
+
+
+
+
+
+
+#Compare prairies  and common garden
+load Data
+```{r, include=FALSE}
+rm(list=ls(all=TRUE))
+insitudata<- read.table("2019and2020Prairie_data.txt",header=T, as.is=TRUE)
+
+reciptransplantdata <- read.table("SEPT2019_2020_COMPILED_2B_DATACOLL_plots_longversion.txt",header=T, as.is=TRUE)
+```
+
+
+
+```{r, include=FALSE}
+
+insitudata$Region=ifelse(insitudata$Region=="C","Central", 
+                                ifelse(insitudata$Region=="W","West",
+                                       ifelse(insitudata$Region=="E","East", "NA")))
+
+insitudata$Prairie=ifelse(insitudata$Prairie=="C1","C1_SIL", 
+                                ifelse(insitudata$Prairie=="C2","C2_SIL",
+                                       ifelse(insitudata$Prairie=="C3","C3_SIL",
+                                              ifelse(insitudata$Prairie=="C4","C4_SIL",
+                                                     ifelse(insitudata$Prairie=="E1","E1_SIL", 
+                                ifelse(insitudata$Prairie=="E2","E2_SIL",
+                                       ifelse(insitudata$Prairie=="E3","E3_SIL",
+                                              ifelse(insitudata$Prairie=="E4","E4_SIL",
+                                                     ifelse(insitudata$Prairie=="W1","W1_SIL", 
+                                ifelse(insitudata$Prairie=="W2","W2_SIL",
+                                       ifelse(insitudata$Prairie=="W3","W3_SIL",
+                                              ifelse(insitudata$Prairie=="W4","W4_SIL", "NA"))))))))))))
+
+```
+
+
+```{r, include=FALSE}
+
+avgnewprairiedata2019_c <- insitudata %>%
+  filter(Year == "2019") %>%
+  group_by(Year, Prairie) %>%
+  dplyr::summarise(avgLRPR = mean(leaf_rust, na.rm = TRUE),
+            avgLBPR = mean(Leaf_blotch, na.rm = TRUE),
+            avgVIRPR = mean(viral_percent, na.rm = TRUE)) 
+  
+
+avgnewprairiedata2020_c <- insitudata %>%
+  filter(Year == "2020") %>%
+  group_by(Year, Prairie) %>%
+  dplyr::summarise(avgLRPR = mean(leaf_rust, na.rm = TRUE),
+            avgLBPR = mean(Leaf_blotch, na.rm = TRUE),
+            avgVIRPR = mean(viral_symptoms, na.rm = TRUE)) 
+  
+  
+  
+prairiecombo <- rbind(avgnewprairiedata2020_c, avgnewprairiedata2019_c) %>% 
+  dplyr ::rename(plot_id = "Prairie") 
+
+prairiecombo
+
+```
+
+```{r, include=FALSE}
+
+reciptransplantdata$Location=ifelse(reciptransplantdata$Location=="central","Central", 
+                                ifelse(reciptransplantdata$Location=="west","West",
+                                       ifelse(reciptransplantdata$Location=="east","East", "NA")))
+
+```
+
+
+
+
+```{r, include=FALSE}
+
+glimpse(reciptransplantdata)
+
+avgnewRT_data2019 <- reciptransplantdata %>%
+ # filter(Year == "2019") %>%
+  group_by( plot_id, Year) %>%
+  dplyr::summarise(avgLRCG = mean(leaf_rust, na.rm = TRUE), 
+            avgLBCG = mean(leaf_blotch, na.rm = TRUE), 
+            avgVIRCG = mean(CLVESEV_SEPT_2019, na.rm = FALSE)) 
+
+avgnewRT_data2019
+
+avgnewRT_data2020 <- reciptransplantdata %>%
+  filter(Year == "2020") %>%
+  group_by( plot_id, Year) %>%
+  dplyr::summarise(avgLRCG = mean(leaf_rust, na.rm = TRUE), 
+            avgLBCG = mean(leaf_blotch, na.rm = TRUE), 
+            avgVIRCG = mean(viral_symptoms, na.rm = FALSE)) 
+
+
+
+commonGardencombo <- rbind(avgnewRT_data2020, avgnewRT_data2019)
+   
+commonGardencombo
+```
+
+
+```{r, include=FALSE}
+AllDisDataAVG <- merge(commonGardencombo, prairiecombo)
+
+write.csv(AllDisDataAVG, "AllDisDataAVG_KP_Newfeb2022.csv")
+
+ALLDatacombined <- AllDisDataAVG %>%
+  mutate(Plot_id = plot_id) %>%
+  separate(plot_id, c("source_prairie", "species"), "_")
+
+glimpse(ALLDatacombined)
+
+
+
+Yearscombined <- ALLDatacombined %>%
+  group_by(source_prairie) %>%
+  dplyr::summarise_at(vars(-species), funs(mean(., na.rm=TRUE))) %>%
+  mutate(Source_Prairie = source_prairie) %>%
+  separate(source_prairie, c("region", "pr_num"), "")
+
+yrscombo_forVirus <- ALLDatacombined %>%
+   group_by(source_prairie) %>%
+    filter(Year =="2020") %>%
+  mutate(Source_Prairie = source_prairie) %>%
+  separate(source_prairie, c("region", "pr_num"), "")
+  
+ 
+
+glimpse(Yearscombined)
+```
+
+```{r}
+
+LRlm_model <-lm(avgLRPR ~ avgLRCG, data = Yearscombined )
+summary(LRlm_model)
+
+LRCorrTest <- cor.test(formula = ~avgLRPR + avgLRCG, 
+                       method = "kendall", 
+                       data = Yearscombined)
+summary(LRCorrTest) 
+LRCorrTest
+
+VIRlm_model <- lm(avgVIRPR ~ avgVIRCG, data = yrscombo_forVirus )
+summary(VIRlm_model)
+
+Lblm_model <- lm(avgLBPR ~ avgLBCG, data = Yearscombined )
+summary(Lblm_model)
+
+
+```

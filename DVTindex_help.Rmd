@@ -1,0 +1,234 @@
+---
+title: "DVT_INDEX"
+author: "Kelsey Peterson"
+date: "2/17/2022"
+output: html_document
+---
+
+
+```{r}
+library(readr)
+library(tidyverse)
+```
+
+#Figure 3: DVT Index of germplasm 'performance' across all the sites
+
+Data and code from : Figure3_Dim_Patho.rmd
+
+
+
+```{r}
+DVTINDEX_from_dvt <- read_csv("DVTINDEX_from_dvt.csv")
+glimpse(DVTINDEX_from_dvt)
+
+```
+
+
+
+```{r, fig.height= 4, fig.width=8}
+
+DVTINDEX_from_dvt$Source_Region<-factor(DVTINDEX_from_dvt$Source_Region,levels=c("West", "Central", "East"))
+
+
+NEWindex2 <- DVTINDEX_from_dvt %>% 
+   
+  ggplot(aes(x = Disease, y = index))+
+ stat_summary(aes(group = Source_Region, fill=Source_Region), 
+             geom = "bar",
+            #color = "black",
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            alpha = .5)+
+   stat_summary(aes(group = Source_Region, fill=Source_Region), 
+             geom = "pointrange",
+            color = "black",
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            alpha = .5)+
+ #       stat_summary(fun.data = mean_se,  
+  #               geom = "pointrange",
+                 #color = Source_Region,    
+   #              position = position_dodge2(width = 0.9, preserve = "single"))+
+
+ geom_text(aes(label = Source),
+            position = position_dodge2(width = 0.9, preserve = "single"),
+         size = 2,
+         fontface="bold")+
+  geom_hline(yintercept = 0) + 
+    guides(color = FALSE, fill = FALSE) +
+  labs(title ="", x="Disease", y="Score") +
+                theme_bw() +
+ scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) +
+ scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2")) + 
+
+   geom_jitter(aes(col=Source_Region), 
+         alpha = .6, 
+            show.legend = FALSE, 
+             message = FALSE, 
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            size = 3.5) +
+   ylim(-1, 1) + 
+  xlim(0, 20) +
+  theme_bw() +
+  theme(axis.text=element_text(size=10)) +
+  facet_grid(.~Disease)
+
+NEWindex2
+```
+
+
+```{r, fig.height= 4, fig.width=2}
+newrustindex <- DVTINDEX_from_dvt %>% 
+   filter(Disease == "Rust") %>%
+  ggplot(aes(x = Disease, y = index))+
+ stat_summary(aes(group = Source_Region, fill=Source_Region), 
+             geom = "bar",
+            #color = "black",
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            alpha = .3)+
+
+
+ geom_text(aes(label = Source),
+            position = position_dodge2(width = 0.9, preserve = "single"),
+         size = 2,
+         fontface="bold")+
+  geom_hline(yintercept = 0) + 
+    guides(color = FALSE, fill = FALSE) +
+  labs(title ="", x="", y="Score") +
+                theme_bw() +
+ scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) +
+ scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2")) + 
+
+   geom_jitter(aes(col=Source_Region), 
+         alpha = .6, 
+            show.legend = FALSE, 
+             message = FALSE, 
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            size = 3.5) +
+   ylim(-1, 1) + 
+  theme_bw() +
+  theme(axis.text=element_text(size=10)) +
+   theme(axis.title.y=element_blank(),
+    axis.text.y=element_blank())
+
+newrustindex
+
+```
+
+```{r, fig.height= 4, fig.width=3}
+newBlotchindex <- DVTINDEX_from_dvt %>% 
+   filter(Disease == "Blotch") %>%
+  ggplot(aes(x = Disease, y = index))+
+ stat_summary(aes(group = Source_Region, fill=Source_Region), 
+             geom = "bar",
+            #color = "black",
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            alpha = .3)+
+  
+ geom_text(aes(label = Source),
+            position = position_dodge2(width = 0.9, preserve = "single"),
+         size = 2,
+         fontface="bold")+
+  geom_hline(yintercept = 0) + 
+    guides(color = FALSE, fill = FALSE) +
+  labs(title ="", x="", y="Score") +
+                theme_bw() +
+ scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) +
+ scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2")) + 
+
+   geom_jitter(aes(col=Source_Region), 
+         alpha = .6, 
+            show.legend = FALSE, 
+             message = FALSE, 
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            size = 3.5) +
+   ylim(-1, 1) + 
+  theme_bw() +
+  theme(axis.text=element_text(size=10)) +
+   theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank())
+
+newBlotchindex
+```
+
+```{r, fig.height= 4, fig.width=3}
+newVCindex <- DVTINDEX_from_dvt %>% 
+   filter(Disease == "VeinClearing") %>%
+  ggplot(aes(x = Disease, y = index))+
+ stat_summary(aes(group = Source_Region, fill=Source_Region), 
+             geom = "bar",
+            #color = "black",
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            alpha = .3)+
+
+ geom_text(aes(label = Source),
+            position = position_dodge2(width = 0.9, preserve = "single"),
+         size = 2,
+         fontface="bold")+
+  geom_hline(yintercept = 0) + 
+    guides(color = FALSE, fill = FALSE) +
+  labs(title ="", x="", y="Score") +
+                theme_bw() +
+ scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) +
+ scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2")) + 
+
+   geom_jitter(aes(col=Source_Region), 
+         alpha = .6, 
+            show.legend = FALSE, 
+             message = FALSE, 
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            size = 3.5) +
+   ylim(-1, 1) + 
+  theme_bw() +
+  theme(axis.text=element_text(size=10)) +
+   theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank())
+
+newVCindex
+```
+
+```{r, fig.height= 4, fig.width=3}
+newMAINindex <- DVTINDEX_from_dvt %>% 
+   filter(Disease == "AllDisease") %>%
+  ggplot(aes(x = Disease, y = index))+
+ stat_summary(aes(group = Source_Region, fill=Source_Region), 
+             geom = "bar",
+            #color = "black",
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            alpha = .3)+
+  
+ geom_text(aes(label = Source),
+            position = position_dodge2(width = 0.9, preserve = "single"),
+         size = 2,
+         fontface="bold")+
+  geom_hline(yintercept = 0) + 
+    guides(color = FALSE, fill = FALSE) +
+  labs(title ="", x="", y="Score") +
+                theme_bw() +
+ scale_color_manual(values=c("#D55E00", "#009E73", "#0072B2")) +
+ scale_fill_manual(values=c("#D55E00", "#009E73", "#0072B2")) + 
+
+   geom_jitter(aes(col=Source_Region), 
+         alpha = .6, 
+            show.legend = FALSE, 
+             message = FALSE, 
+             position = position_dodge2(width = 0.9, preserve = "single"),
+            size = 3.5) +
+   ylim(-1, 1) + 
+  theme_bw() +
+  theme(axis.text=element_text(size=10)) +
+   theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank())
+
+
+newMAINindex
+```
+
+
+```{r, fig.height= 4, fig.width=2}
+
+
+newrustindex
+newBlotchindex
+newVCindex
+newMAINindex
+
+```
